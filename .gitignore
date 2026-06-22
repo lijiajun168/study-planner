@@ -1,3 +1,9 @@
 .DS_Store
 英国学校对中国学校对要求/
 
+
+*.xlsx
+*.xls
+*.csv
+app/case-stats.local.js
+private-case-stats.json

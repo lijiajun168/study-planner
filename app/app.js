@@ -83,6 +83,38 @@ function fitText(delta, majorMatched, rank) {
   return "冲刺";
 }
 
+function scoreBand(score) {
+  if (!Number.isFinite(score)) return "unknown";
+  const low = Math.floor(score / 5) * 5;
+  return `${low}-${low + 4}`;
+}
+
+function getCaseSignal(program, tier, majorGroup, score) {
+  if (typeof CASE_STATS === "undefined" || !Array.isArray(CASE_STATS.records)) {
+    return { total: 0, offers: 0, rejects: 0, offerRate: null, score: 0 };
+  }
+  const band = scoreBand(score);
+  const matches = CASE_STATS.records.filter((record) => {
+    return record.schoolType === tier.id &&
+      record.majorGroup === majorGroup &&
+      record.targetUniversity === program.university &&
+      (record.scoreBand === band || record.scoreBand === "unknown");
+  });
+  const total = matches.reduce((sum, record) => sum + record.total, 0);
+  const offers = matches.reduce((sum, record) => sum + record.offers, 0);
+  const rejects = matches.reduce((sum, record) => sum + record.rejects, 0);
+  if (!total) return { total: 0, offers: 0, rejects: 0, offerRate: null, score: 0 };
+  const offerRate = offers / total;
+  const confidence = Math.min(18, total * 1.5);
+  return {
+    total,
+    offers,
+    rejects,
+    offerRate,
+    score: (offerRate - 0.5) * confidence
+  };
+}
+
 function buildReason(program, student, tier, majorGroup, specialNeeds) {
   const floor = program.floor;
   const delta = student.score - floor;
@@ -119,7 +151,8 @@ function recommend(student, countryId) {
       const majorMatched = program.field === majorGroup;
       const feasibility = delta * 10 + (majorMatched ? 18 : -8) + (rule.accepted ? 0 : -160);
       const rankScore = Math.max(0, 1400 - program.rank) / 14;
-      const total = feasibility + rankScore;
+      const caseSignal = getCaseSignal(program, tier, majorGroup, student.score);
+      const total = feasibility + rankScore + caseSignal.score;
       return {
         ...program,
         floor,
@@ -127,6 +160,7 @@ function recommend(student, countryId) {
         documentBand: rule.documentBand,
         ruleNote: rule.note,
         acceptedByDocument: rule.accepted,
+        caseSignal,
         delta,
         majorMatched,
         tier,
@@ -182,6 +216,7 @@ function renderResults(results, student, country) {
             <span>排名参考：${item.rank}</span>
             <span>规则线：${item.floor}</span>
             <span>${item.documentBand}</span>
+            ${item.caseSignal && item.caseSignal.total ? `<span>相似案例：${item.caseSignal.total}，录取率 ${Math.round(item.caseSignal.offerRate * 100)}%</span>` : ""}
           </div>
           <p>${item.reason}</p>
           <p>规则来源：${item.ruleSource || item.source}</p>
