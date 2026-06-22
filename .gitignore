@@ -7,3 +7,5 @@
 *.csv
 app/case-stats.local.js
 private-case-stats.json
+server/.env
+server/data/private-case-stats.json

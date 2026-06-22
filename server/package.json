@@ -1,0 +1,13 @@
+{
+  "name": "study-planner-private-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "API_KEY=dev-key ALLOWED_ORIGIN=http://127.0.0.1:4173 CASE_STATS_PATH=../private-case-stats.json node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
