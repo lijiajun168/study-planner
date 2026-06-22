@@ -33,12 +33,27 @@ function normalizeSchoolName(name) {
 
 function detectTier(university) {
   const normalized = normalizeSchoolName(university);
+  if (/独立学院|民办/.test(university)) {
+    return { id: "private", label: "三本民办 / 独立学院", inferred: true };
+  }
   for (const tier of APP_DATA.tiers) {
     if (tier.schools.some((school) => normalizeSchoolName(school) === normalized)) {
       return { id: tier.id, label: tier.label };
     }
   }
-  return { id: "other", label: "双非 / 未匹配院校" };
+  return { id: "public_non211", label: "一本双非 / 公办本科", inferred: true };
+}
+
+function resolveTier(university, schoolType) {
+  const detected = detectTier(university);
+  if (!schoolType || schoolType === "auto") return detected;
+  const labels = {
+    "985": "985高校",
+    "211": "211 / 双一流高校",
+    public_non211: "一本双非 / 公办本科",
+    private: "三本民办 / 独立学院"
+  };
+  return { id: schoolType, label: labels[schoolType] || detected.label, manual: true };
 }
 
 function detectMajorGroup(major) {
@@ -79,8 +94,8 @@ function buildReason(program, student, tier, majorGroup, specialNeeds) {
 }
 
 function resolveProgramRule(program, tier) {
-  const baseFloor = program.floor[tier.id] ?? program.floor.other;
-  const listBlocked = program.country === "uk" && program.listRestricted === true && tier.id === "other";
+  const baseFloor = program.floor[tier.id] ?? program.floor.other + (tier.id === "private" ? 3 : 0);
+  const listBlocked = program.country === "uk" && program.listRestricted === true && tier.id === "private";
   return {
     floor: baseFloor,
     source: program.source,
@@ -90,7 +105,7 @@ function resolveProgramRule(program, tier) {
 }
 
 function recommend(student, countryId) {
-  const tier = detectTier(student.university);
+  const tier = resolveTier(student.university, student.schoolType);
   const majorGroup = detectMajorGroup(student.major);
   const specialNeeds = detectSpecialNeeds(student.notes);
   const base = APP_DATA.thresholds[countryId][tier.id] ?? APP_DATA.thresholds[countryId].other;
@@ -145,7 +160,7 @@ function renderCountries() {
 }
 
 function renderResults(results, student, country) {
-  const tier = detectTier(student.university);
+  const tier = resolveTier(student.university, student.schoolType);
   resultCountry.textContent = `${country.name} · 推荐结果`;
   resultTitle.textContent = `${student.nickname} 的 6 所学校专业方案`;
   const notesText = student.notes ? `特殊说明：${student.notes}。` : "";
@@ -202,6 +217,7 @@ form.addEventListener("submit", (event) => {
   state.student = {
     nickname: formData.get("nickname").trim(),
     university: formData.get("university").trim(),
+    schoolType: formData.get("schoolType"),
     major: formData.get("major").trim(),
     score: Number(formData.get("score")),
     notes: formData.get("notes").trim()

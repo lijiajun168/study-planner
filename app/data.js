@@ -24,11 +24,11 @@ const APP_DATA = {
     }
   ],
   thresholds: {
-    uk: { c9: 78, "985": 80, "211": 83, other: 87 },
-    hk: { c9: 80, "985": 82, "211": 85, other: 88 },
-    au: { c9: 75, "985": 78, "211": 80, other: 84 },
-    ie: { c9: 76, "985": 78, "211": 80, other: 84 },
-    sg: { c9: 84, "985": 86, "211": 89, other: 92 }
+    uk: { c9: 78, "985": 80, "211": 83, public_non211: 87, private: 90, other: 87 },
+    hk: { c9: 80, "985": 82, "211": 85, public_non211: 88, private: 92, other: 88 },
+    au: { c9: 75, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
+    ie: { c9: 76, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
+    sg: { c9: 84, "985": 86, "211": 89, public_non211: 92, private: 96, other: 92 }
   },
   majorGroups: {
     business: ["金融", "会计", "经济", "管理", "市场", "商务", "贸易", "工商", "财务"],

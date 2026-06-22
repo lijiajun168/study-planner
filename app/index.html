@@ -41,6 +41,16 @@
               <input name="university" required placeholder="例如：华南理工大学" />
             </label>
             <label>
+              <span>本科院校类型</span>
+              <select name="schoolType">
+                <option value="auto">自动识别</option>
+                <option value="985">985院校</option>
+                <option value="211">211院校</option>
+                <option value="public_non211">一本双非 / 公办本科</option>
+                <option value="private">三本民办 / 独立学院</option>
+              </select>
+            </label>
+            <label>
               <span>本科专业</span>
               <input name="major" required placeholder="例如：金融学 / 计算机科学" />
             </label>
