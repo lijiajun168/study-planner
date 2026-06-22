@@ -34,7 +34,26 @@ curl -X POST http://127.0.0.1:8787/api/recommend \
 6. Add environment variables:
    - `API_KEY`: a long random secret.
    - `ALLOWED_ORIGIN`: `https://lijiajun168.github.io`
-   - `CASE_STATS_PATH`: path to your private case statistics file on the server.
+   - `DATABASE_URL`: the Render Postgres Internal Database URL.
 7. Do not upload raw Excel files to the public repository.
 
-For production, move case statistics into a private database or Render private secret/file storage.
+## Import Aggregated Case Stats
+
+After deployment with `DATABASE_URL`, import the local aggregated stats file:
+
+```bash
+curl -X POST https://YOUR-RENDER-URL/api/admin/import-case-stats \
+  -H 'content-type: application/json' \
+  -H 'x-api-key: YOUR_API_KEY' \
+  --data-binary @private-case-stats.json
+```
+
+Then verify:
+
+```bash
+curl https://YOUR-RENDER-URL/api/health
+```
+
+The health response should show non-zero `offers`, `rejects`, and `groups`.
+
+Do not upload raw Excel files to the public repository. Only import aggregated statistics.

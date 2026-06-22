@@ -2,12 +2,15 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
 const API_KEY = process.env.API_KEY || "dev-key";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const CASE_STATS_PATH = process.env.CASE_STATS_PATH || path.join(__dirname, "data", "case-stats.example.json");
+const DATABASE_URL = process.env.DATABASE_URL;
+const { Pool } = pg;
 
 const countries = ["uk", "hk", "au", "ie", "sg"];
 const tiers = {
@@ -52,11 +55,84 @@ const programs = [
 ];
 
 let caseStats = { source: "empty", summary: { offers: 0, rejects: 0, groups: 0 }, records: [] };
-try {
-  caseStats = JSON.parse(fs.readFileSync(CASE_STATS_PATH, "utf8"));
-} catch (error) {
-  console.warn(`Case stats unavailable at ${CASE_STATS_PATH}: ${error.message}`);
+let dbPool = null;
+
+async function ensureCaseStatsSchema(pool) {
+  await pool.query(`
+    create table if not exists case_stats (
+      id bigserial primary key,
+      school_type text not null,
+      major_group text not null,
+      target_university text not null,
+      score_band text not null,
+      offers integer not null,
+      rejects integer not null,
+      total integer not null,
+      offer_rate numeric(6,3) not null,
+      unique (school_type, major_group, target_university, score_band)
+    );
+  `);
 }
+
+async function refreshPostgresSummary() {
+  const summary = await dbPool.query(
+    "select count(*)::int as groups, coalesce(sum(offers),0)::int as offers, coalesce(sum(rejects),0)::int as rejects from case_stats"
+  );
+  caseStats = { source: "postgres", summary: summary.rows[0], records: [] };
+}
+
+async function importCaseStatsToPostgres(payload) {
+  if (!dbPool) throw new Error("DATABASE_URL is not configured");
+  const records = Array.isArray(payload.records) ? payload.records : [];
+  await ensureCaseStatsSchema(dbPool);
+  const client = await dbPool.connect();
+  try {
+    await client.query("begin");
+    await client.query("truncate table case_stats");
+    for (const record of records) {
+      await client.query(
+        `insert into case_stats
+          (school_type, major_group, target_university, score_band, offers, rejects, total, offer_rate)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          record.schoolType,
+          record.majorGroup,
+          record.targetUniversity,
+          record.scoreBand,
+          record.offers,
+          record.rejects,
+          record.total,
+          record.offerRate
+        ]
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+  await refreshPostgresSummary();
+  return caseStats.summary;
+}
+
+async function loadCaseStats() {
+  if (DATABASE_URL) {
+    dbPool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    await ensureCaseStatsSchema(dbPool);
+    await refreshPostgresSummary();
+    return;
+  }
+
+  try {
+    caseStats = JSON.parse(fs.readFileSync(CASE_STATS_PATH, "utf8"));
+  } catch (error) {
+    console.warn(`Case stats unavailable at ${CASE_STATS_PATH}: ${error.message}`);
+  }
+}
+
+await loadCaseStats();
 
 function sendJson(res, status, data, origin) {
   res.writeHead(status, {
@@ -100,24 +176,40 @@ function scoreBand(score) {
   return `${low}-${low + 4}`;
 }
 
-function getCaseSignal(program, tier, majorGroup, score) {
+async function getCaseSignal(program, tier, majorGroup, score) {
   const band = scoreBand(score);
-  const matches = (caseStats.records || []).filter((record) => {
-    return record.schoolType === tier &&
-      record.majorGroup === majorGroup &&
-      record.targetUniversity === program.university &&
-      (record.scoreBand === band || record.scoreBand === "unknown");
-  });
-  const total = matches.reduce((sum, record) => sum + record.total, 0);
-  const offers = matches.reduce((sum, record) => sum + record.offers, 0);
-  const rejects = matches.reduce((sum, record) => sum + record.rejects, 0);
+  let rows = [];
+  if (dbPool) {
+    const result = await dbPool.query(
+      `select offers, rejects, total, offer_rate
+       from case_stats
+       where school_type = $1 and major_group = $2 and target_university = $3 and score_band in ($4, 'unknown')`,
+      [tier, majorGroup, program.university, band]
+    );
+    rows = result.rows.map((row) => ({
+      offers: Number(row.offers),
+      rejects: Number(row.rejects),
+      total: Number(row.total),
+      offerRate: Number(row.offer_rate)
+    }));
+  } else {
+    rows = (caseStats.records || []).filter((record) => {
+      return record.schoolType === tier &&
+        record.majorGroup === majorGroup &&
+        record.targetUniversity === program.university &&
+        (record.scoreBand === band || record.scoreBand === "unknown");
+    });
+  }
+  const total = rows.reduce((sum, record) => sum + record.total, 0);
+  const offers = rows.reduce((sum, record) => sum + record.offers, 0);
+  const rejects = rows.reduce((sum, record) => sum + record.rejects, 0);
   if (!total) return { total: 0, offers: 0, rejects: 0, offerRate: null, score: 0 };
   const offerRate = offers / total;
   const confidence = Math.min(20, total * 1.4);
   return { total, offers, rejects, offerRate, score: (offerRate - 0.5) * confidence };
 }
 
-function recommend(input) {
+async function recommend(input) {
   const country = countries.includes(input.country) ? input.country : "uk";
   const tier = normalizeTier(input.schoolType);
   const majorGroup = detectMajorGroup(input.major || "");
@@ -125,14 +217,14 @@ function recommend(input) {
   if (!Number.isFinite(score)) throw new Error("score must be a number");
 
   const base = thresholds[country][tier] ?? thresholds[country].other;
-  return programs
+  const results = await Promise.all(programs
     .filter((program) => program.country === country)
-    .map((program) => {
+    .map(async (program) => {
       const floor = Math.max(program.floor[tier] ?? program.floor.other, base - 3);
       const delta = score - floor;
       const blocked = program.country === "uk" && program.listRestricted === true && tier === "private";
       const matched = program.field === majorGroup;
-      const caseSignal = getCaseSignal(program, tier, majorGroup, score);
+      const caseSignal = await getCaseSignal(program, tier, majorGroup, score);
       const rankScore = Math.max(0, 1400 - program.rank) / 14;
       const feasibility = delta * 10 + (matched ? 18 : -8) + (blocked ? -160 : 0) + caseSignal.score;
       return {
@@ -141,15 +233,24 @@ function recommend(input) {
         rank: program.rank,
         link: program.link,
         floor,
+        total: feasibility + rankScore,
         delta: Number(delta.toFixed(1)),
         fit: program.rank <= 10 && delta >= 0 ? "高排名优选" : delta >= 5 && matched ? "高匹配" : delta >= 0 ? "可申请" : "冲刺",
         documentBand: program.listRestricted ? "名单限制项目" : "接受范围较宽",
         caseSignal,
         reason: `${matched ? "专业方向匹配" : "专业方向需补充相关经历"}，均分${delta >= 0 ? "高于" : "低于"}当前规则线 ${Math.abs(delta).toFixed(1)} 分。`
       };
-    })
+    }));
+
+  return results
     .filter((item) => item.delta >= -3 && !(item.documentBand === "名单限制项目" && tier === "private"))
-    .sort((a, b) => (b.delta >= 0) - (a.delta >= 0) || a.rank - b.rank)
+    .sort((a, b) => {
+      const aAdmissible = a.delta >= 0 ? 1 : 0;
+      const bAdmissible = b.delta >= 0 ? 1 : 0;
+      if (aAdmissible !== bAdmissible) return bAdmissible - aAdmissible;
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return b.total - a.total;
+    })
     .slice(0, 6);
 }
 
@@ -163,7 +264,17 @@ const server = http.createServer(async (req, res) => {
     if (!requireAuth(req)) return sendJson(res, 401, { error: "Unauthorized" }, origin);
     try {
       const input = await readBody(req);
-      return sendJson(res, 200, { results: recommend(input), caseStats: caseStats.summary }, origin);
+      return sendJson(res, 200, { results: await recommend(input), caseStats: caseStats.summary }, origin);
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message }, origin);
+    }
+  }
+  if (req.url === "/api/admin/import-case-stats" && req.method === "POST") {
+    if (!requireAuth(req)) return sendJson(res, 401, { error: "Unauthorized" }, origin);
+    try {
+      const payload = await readBody(req);
+      const summary = await importCaseStatsToPostgres(payload);
+      return sendJson(res, 200, { ok: true, caseStats: summary }, origin);
     } catch (error) {
       return sendJson(res, 400, { error: error.message }, origin);
     }
