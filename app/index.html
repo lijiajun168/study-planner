@@ -31,6 +31,21 @@
             <span class="badge muted">本科背景</span>
           </div>
 
+          <details class="api-settings">
+            <summary>私有后端设置</summary>
+            <div class="api-grid">
+              <label>
+                <span>API 地址</span>
+                <input id="apiUrl" type="url" placeholder="https://study-planner-fiq3.onrender.com" />
+              </label>
+              <label>
+                <span>访问密钥</span>
+                <input id="apiKey" type="password" placeholder="Render 环境变量 API_KEY" />
+              </label>
+              <button class="ghost-button" id="saveApiSettings" type="button">保存设置</button>
+            </div>
+          </details>
+
           <form id="studentForm" class="form-grid">
             <label>
               <span>昵称</span>

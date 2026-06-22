@@ -16,11 +16,55 @@ const recommendations = document.querySelector("#recommendations");
 const resultTitle = document.querySelector("#resultTitle");
 const resultCountry = document.querySelector("#resultCountry");
 const profileSummary = document.querySelector("#profileSummary");
+const apiUrlInput = document.querySelector("#apiUrl");
+const apiKeyInput = document.querySelector("#apiKey");
+const saveApiSettings = document.querySelector("#saveApiSettings");
 
 function showView(name) {
   Object.values(views).forEach((view) => view.classList.remove("active"));
   views[name].classList.add("active");
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function loadApiSettings() {
+  const settings = JSON.parse(localStorage.getItem("studyPlannerApi") || "{}");
+  if (apiUrlInput) apiUrlInput.value = settings.url || "https://study-planner-fiq3.onrender.com";
+  if (apiKeyInput) apiKeyInput.value = settings.key || "";
+}
+
+function getApiSettings() {
+  return {
+    url: (apiUrlInput?.value || "").replace(/\/$/, ""),
+    key: apiKeyInput?.value || ""
+  };
+}
+
+function persistApiSettings() {
+  const settings = getApiSettings();
+  localStorage.setItem("studyPlannerApi", JSON.stringify(settings));
+}
+
+async function recommendWithPrivateApi(student, countryId) {
+  const settings = getApiSettings();
+  if (!settings.url || !settings.key) return null;
+  const response = await fetch(`${settings.url}/api/recommend`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": settings.key
+    },
+    body: JSON.stringify({
+      country: countryId,
+      school: student.university,
+      schoolType: resolveTier(student.university, student.schoolType).id,
+      major: student.major,
+      score: student.score,
+      notes: student.notes
+    })
+  });
+  if (!response.ok) throw new Error(`API ${response.status}`);
+  const payload = await response.json();
+  return Array.isArray(payload.results) ? payload.results : null;
 }
 
 function getCountry(id) {
@@ -236,7 +280,16 @@ function renderResults(results, student, country) {
   }
 }
 
+loadApiSettings();
 renderCountries();
+
+saveApiSettings?.addEventListener("click", () => {
+  persistApiSettings();
+  saveApiSettings.textContent = "已保存";
+  window.setTimeout(() => {
+    saveApiSettings.textContent = "保存设置";
+  }, 1400);
+});
 
 countryGrid.addEventListener("click", (event) => {
   const card = event.target.closest("[data-country]");
@@ -246,7 +299,7 @@ countryGrid.addEventListener("click", (event) => {
   showView("form");
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(form);
   state.student = {
@@ -257,8 +310,15 @@ form.addEventListener("submit", (event) => {
     score: Number(formData.get("score")),
     notes: formData.get("notes").trim()
   };
+  persistApiSettings();
   const country = getCountry(state.country);
-  const results = recommend(state.student, state.country);
+  let results = null;
+  try {
+    results = await recommendWithPrivateApi(state.student, state.country);
+  } catch (error) {
+    console.warn("Private API unavailable, using local rules", error);
+  }
+  if (!results) results = recommend(state.student, state.country);
   renderResults(results, state.student, country);
   showView("result");
 });
