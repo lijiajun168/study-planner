@@ -80,11 +80,12 @@ function buildReason(program, student, tier, majorGroup, specialNeeds) {
 
 function resolveProgramRule(program, tier) {
   const baseFloor = program.floor[tier.id] ?? program.floor.other;
+  const listBlocked = program.country === "uk" && program.listRestricted === true && tier.id === "other";
   return {
     floor: baseFloor,
     source: program.source,
-    documentBand: tier.label,
-    accepted: true
+    documentBand: program.listRestricted ? "名单限制项目" : "接受范围较宽",
+    accepted: !listBlocked
   };
 }
 
@@ -101,7 +102,7 @@ function recommend(student, countryId) {
       const floor = Math.max(rule.floor, base - 3);
       const delta = student.score - floor;
       const majorMatched = program.field === majorGroup;
-      const feasibility = delta * 10 + (majorMatched ? 18 : -8) + (rule.accepted ? 0 : -80);
+      const feasibility = delta * 10 + (majorMatched ? 18 : -8) + (rule.accepted ? 0 : -160);
       const rankScore = Math.max(0, 1400 - program.rank) / 14;
       const total = feasibility + rankScore;
       return {
