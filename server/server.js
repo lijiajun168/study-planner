@@ -17,15 +17,17 @@ const tiers = {
   c9: "C9 / 顶尖985",
   "985": "985高校",
   "211": "211 / 双一流高校",
-  public_non211: "一本双非 / 公办本科",
-  private: "三本民办 / 独立学院"
+  public_top200: "双非一本 / 中国前200",
+  public_non211: "双非一本 / 中国前200",
+  public_non_top200: "公办二本 / 非前200",
+  private: "民办三本 / 独立学院"
 };
 const thresholds = {
-  uk: { c9: 78, "985": 80, "211": 83, public_non211: 87, private: 90, other: 87 },
-  hk: { c9: 80, "985": 82, "211": 85, public_non211: 88, private: 92, other: 88 },
-  au: { c9: 75, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
-  ie: { c9: 76, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
-  sg: { c9: 84, "985": 86, "211": 89, public_non211: 92, private: 96, other: 92 }
+  uk: { c9: 78, "985": 80, "211": 83, public_top200: 87, public_non211: 87, public_non_top200: 88, private: 90, other: 87 },
+  hk: { c9: 80, "985": 82, "211": 85, public_top200: 88, public_non211: 88, public_non_top200: 90, private: 92, other: 88 },
+  au: { c9: 75, "985": 78, "211": 80, public_top200: 84, public_non211: 84, public_non_top200: 86, private: 88, other: 84 },
+  ie: { c9: 76, "985": 78, "211": 80, public_top200: 84, public_non211: 84, public_non_top200: 86, private: 88, other: 84 },
+  sg: { c9: 84, "985": 86, "211": 89, public_top200: 92, public_non211: 92, public_non_top200: 94, private: 96, other: 92 }
 };
 const majorGroups = {
   business: ["金融", "会计", "经济", "管理", "市场", "商务", "贸易", "工商", "财务", "保险", "供应链", "营销"],
@@ -43,10 +45,13 @@ const programs = [
   { country: "uk", university: "The University of Manchester", rank: 35, program: "MSc Business Analytics", field: "data", listRestricted: true, link: "https://www.manchester.ac.uk/study/masters/courses/list/10147/msc-business-analytics-operational-research-and-risk-analysis/", floor: { c9: 82, "985": 84, "211": 87, public_non211: 91, private: 95, other: 91 } },
   { country: "uk", university: "University of Bristol", rank: 51, program: "MSc Management", field: "business", listRestricted: true, link: "https://www.bristol.ac.uk/study/postgraduate/taught/msc-management/", floor: { c9: 80, "985": 82, "211": 85, public_non211: 89, private: 93, other: 89 } },
   { country: "uk", university: "University of Birmingham", rank: 76, program: "MSc Business Analytics", field: "data", link: "https://www.birmingham.ac.uk/postgraduate/courses/taught/business/business-analytics", floor: { c9: 78, "985": 80, "211": 83, public_non211: 87, private: 90, other: 87 } },
+  { country: "uk", university: "University of Birmingham", rank: 76, program: "MA International Relations", field: "social", link: "https://www.birmingham.ac.uk/postgraduate/courses/taught/govsoc/international-relations-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 76, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
   { country: "uk", university: "University of Glasgow", rank: 79, program: "MSc International Strategic Marketing", field: "business", link: "https://www.gla.ac.uk/postgraduate/taught/internationalstrategicmarketing/", floor: { c9: 78, "985": 80, "211": 83, public_non211: 87, private: 90, other: 87 } },
   { country: "uk", university: "University of Southampton", rank: 87, program: "MSc Business Analytics and Management Sciences", field: "data", link: "https://www.southampton.ac.uk/courses/business-analytics-management-sciences-masters-msc", floor: { c9: 76, "985": 78, "211": 81, public_non211: 86, private: 89, other: 86 } },
+  { country: "uk", university: "University of Southampton", rank: 87, program: "MA International Relations", field: "social", link: "https://www.southampton.ac.uk/courses/international-relations-masters-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 74, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
   { country: "uk", university: "The University of Sheffield", rank: 92, program: "MSc Data Analytics", field: "data", link: "https://www.sheffield.ac.uk/postgraduate/taught/courses/2026/data-analytics-msc", floor: { c9: 76, "985": 78, "211": 81, public_non211: 86, private: 89, other: 86 } },
   { country: "uk", university: "University of Nottingham", rank: 97, program: "MSc Business Analytics", field: "data", link: "https://www.nottingham.ac.uk/pgstudy/course/taught/business-analytics-msc", floor: { c9: 76, "985": 78, "211": 81, public_non211: 86, private: 89, other: 86 } },
+  { country: "uk", university: "University of Nottingham", rank: 97, program: "Public Policy MA", field: "social", link: "https://www.nottingham.ac.uk/pgstudy/course/taught/public-policy-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 74, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
   { country: "uk", university: "University of Exeter", rank: 155, program: "MSc International Business", field: "business", link: "https://www.exeter.ac.uk/study/postgraduate/courses/business/internationalbusiness/", floor: { c9: 76, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 } },
   { country: "uk", university: "Lancaster University", rank: 157, program: "MSc Management", field: "business", link: "https://www.lancaster.ac.uk/study/postgraduate/postgraduate-courses/management-msc/", floor: { c9: 75, "985": 77, "211": 80, public_non211: 84, private: 88, other: 84 } },
   { country: "uk", university: "University of York", rank: 169, program: "MSc Management", field: "business", link: "https://www.york.ac.uk/study/postgraduate-taught/courses/msc-management/", floor: { c9: 75, "985": 77, "211": 80, public_non211: 84, private: 88, other: 84 } },
@@ -168,12 +173,69 @@ function detectMajorGroup(major = "") {
 }
 
 function normalizeTier(input) {
-  return tiers[input] ? input : "public_non211";
+  if (input === "public_non211") return "public_top200";
+  return tiers[input] ? input : "public_top200";
 }
 
 function scoreBand(score) {
   const low = Math.floor(Number(score) / 5) * 5;
   return `${low}-${low + 4}`;
+}
+
+function isHotMajor(majorGroup) {
+  return majorGroup === "business" || majorGroup === "data";
+}
+
+function isBroadSocialMajor(majorGroup) {
+  return majorGroup === "social" || majorGroup === "arts";
+}
+
+function isEliteTier(tier) {
+  return tier === "c9" || tier === "985" || tier === "211";
+}
+
+function allowsLowerTierTop100(program, majorGroup) {
+  const allowedUniversities = ["University of Southampton", "University of Nottingham", "University of Birmingham"];
+  return program.country === "uk" && program.rank <= 100 && isBroadSocialMajor(majorGroup) && allowedUniversities.includes(program.university);
+}
+
+function resolveProgramRule(program, tier, majorGroup, country) {
+  const baseThreshold = thresholds[country][tier] ?? thresholds[country].other;
+  const tierFloor = program.floor[tier] ?? program.floor.public_non211 ?? program.floor.other ?? baseThreshold;
+  let floor = Math.max(tierFloor, baseThreshold - 3);
+  let accepted = true;
+  let note = "";
+
+  if (program.country === "uk") {
+    if (isEliteTier(tier)) {
+      if (isHotMajor(majorGroup)) floor = Math.max(floor, 85);
+      if (isBroadSocialMajor(majorGroup)) floor = Math.max(floor, program.rank <= 100 ? 80 : 70);
+    }
+
+    if (tier === "public_top200" && program.listRestricted) {
+      note = "双非一本按英国院校认可名单复核；公开规则只在达到名单项目分数线时推荐。";
+    }
+
+    if (tier === "public_non_top200" || tier === "private") {
+      if (program.rank <= 100 && !allowsLowerTierTop100(program, majorGroup)) {
+        accepted = false;
+        note = "公办二本/民办三本通常不进入该类前100名单项目，系统不强行匹配。";
+      } else if (program.rank <= 100) {
+        floor = Math.max(tierFloor, 82);
+        note = "该前100选项仅限文科社科等相对宽口径方向，并需逐项复核院校名单。";
+      }
+    }
+  }
+
+  return { floor, accepted, note, documentBand: program.listRestricted ? "名单限制项目" : "接受范围较宽" };
+}
+
+function fitText(delta, matched, rank) {
+  if (rank <= 10 && delta >= 0) return "高排名优选";
+  if (rank <= 100 && delta >= 0) return "前100匹配";
+  if (delta >= 5 && matched) return "高匹配";
+  if (delta >= 2) return "较稳妥";
+  return "可申请";
 }
 
 async function getCaseSignal(program, tier, majorGroup, score) {
@@ -216,38 +278,36 @@ async function recommend(input) {
   const score = Number(input.score);
   if (!Number.isFinite(score)) throw new Error("score must be a number");
 
-  const base = thresholds[country][tier] ?? thresholds[country].other;
   const results = await Promise.all(programs
     .filter((program) => program.country === country)
     .map(async (program) => {
-      const floor = Math.max(program.floor[tier] ?? program.floor.other, base - 3);
-      const delta = score - floor;
-      const blocked = program.country === "uk" && program.listRestricted === true && tier === "private";
+      const rule = resolveProgramRule(program, tier, majorGroup, country);
+      const delta = score - rule.floor;
       const matched = program.field === majorGroup;
       const caseSignal = await getCaseSignal(program, tier, majorGroup, score);
       const rankScore = Math.max(0, 1400 - program.rank) / 14;
-      const feasibility = delta * 10 + (matched ? 18 : -8) + (blocked ? -160 : 0) + caseSignal.score;
+      const total = rankScore + (matched ? 18 : -8) + Math.min(12, Math.max(-8, caseSignal.score));
       return {
         university: program.university,
         program: program.program,
         rank: program.rank,
         link: program.link,
-        floor,
-        total: feasibility + rankScore,
+        floor: rule.floor,
+        ruleSource: program.source || "私有后端规则 + 案例库",
+        ruleNote: rule.note,
+        acceptedByDocument: rule.accepted,
+        total,
         delta: Number(delta.toFixed(1)),
-        fit: program.rank <= 10 && delta >= 0 ? "高排名优选" : delta >= 5 && matched ? "高匹配" : delta >= 0 ? "可申请" : "冲刺",
-        documentBand: program.listRestricted ? "名单限制项目" : "接受范围较宽",
+        fit: fitText(delta, matched, program.rank),
+        documentBand: rule.documentBand,
         caseSignal,
-        reason: `${matched ? "专业方向匹配" : "专业方向需补充相关经历"}，均分${delta >= 0 ? "高于" : "低于"}当前规则线 ${Math.abs(delta).toFixed(1)} 分。`
+        reason: `${matched ? "专业方向匹配" : "专业方向需补充相关经历"}，均分达到当前规则线，并高出 ${Math.max(0, delta).toFixed(1)} 分。该项目已通过院校名单/背景规则筛选，并按可申请范围内的学校排名优先推荐。`
       };
     }));
 
   return results
-    .filter((item) => item.delta >= -3 && !(item.documentBand === "名单限制项目" && tier === "private"))
+    .filter((item) => item.delta >= 0 && item.acceptedByDocument !== false)
     .sort((a, b) => {
-      const aAdmissible = a.delta >= 0 ? 1 : 0;
-      const bAdmissible = b.delta >= 0 ? 1 : 0;
-      if (aAdmissible !== bAdmissible) return bAdmissible - aAdmissible;
       if (a.rank !== b.rank) return a.rank - b.rank;
       return b.total - a.total;
     })

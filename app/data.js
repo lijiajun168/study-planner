@@ -24,16 +24,17 @@ const APP_DATA = {
     }
   ],
   thresholds: {
-    uk: { c9: 78, "985": 80, "211": 83, public_non211: 87, private: 90, other: 87 },
-    hk: { c9: 80, "985": 82, "211": 85, public_non211: 88, private: 92, other: 88 },
-    au: { c9: 75, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
-    ie: { c9: 76, "985": 78, "211": 80, public_non211: 84, private: 88, other: 84 },
-    sg: { c9: 84, "985": 86, "211": 89, public_non211: 92, private: 96, other: 92 }
+    uk: { c9: 78, "985": 80, "211": 83, public_top200: 87, public_non211: 87, public_non_top200: 88, private: 90, other: 87 },
+    hk: { c9: 80, "985": 82, "211": 85, public_top200: 88, public_non211: 88, public_non_top200: 90, private: 92, other: 88 },
+    au: { c9: 75, "985": 78, "211": 80, public_top200: 84, public_non211: 84, public_non_top200: 86, private: 88, other: 84 },
+    ie: { c9: 76, "985": 78, "211": 80, public_top200: 84, public_non211: 84, public_non_top200: 86, private: 88, other: 84 },
+    sg: { c9: 84, "985": 86, "211": 89, public_top200: 92, public_non211: 92, public_non_top200: 94, private: 96, other: 92 }
   },
   majorGroups: {
-    business: ["金融", "会计", "经济", "管理", "市场", "商务", "贸易", "工商", "财务"],
-    data: ["数据", "统计", "数学", "信息", "计算机", "软件", "人工智能", "电子", "工程"],
-    social: ["传媒", "教育", "法律", "社会", "国际关系", "公共", "心理", "语言"],
+    business: ["金融", "会计", "经济", "管理", "市场", "商务", "贸易", "工商", "财务", "保险", "供应链", "营销"],
+    data: ["数据", "统计", "数学", "信息", "计算机", "软件", "人工智能", "电子", "工程", "系统", "技术"],
+    social: ["传媒", "教育", "法律", "社会", "国际关系", "公共", "心理", "语言", "翻译", "新闻"],
+    arts: ["艺术", "设计", "电影", "影视", "服装", "音乐", "美术", "视觉"],
     engineering: ["机械", "土木", "材料", "化学", "生物", "环境", "能源", "建筑"]
   },
   programs: [
@@ -47,12 +48,15 @@ const APP_DATA = {
     { country: "uk", university: "University of Bristol", rank: 51, program: "MSc Management", field: "business", listRestricted: true, link: "https://www.bristol.ac.uk/study/postgraduate/taught/msc-management/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 80, "985": 82, "211": 85, other: 89 } },
     { country: "uk", university: "The University of Warwick", rank: 74, program: "MSc Business Analytics", field: "data", listRestricted: true, link: "https://warwick.ac.uk/study/postgraduate/courses/businessanalytics/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 80, "985": 82, "211": 85, other: 89 } },
     { country: "uk", university: "University of Birmingham", rank: 76, program: "MSc Business Analytics", field: "data", link: "https://www.birmingham.ac.uk/postgraduate/courses/taught/business/business-analytics", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 78, "985": 80, "211": 83, other: 87 } },
+    { country: "uk", university: "University of Birmingham", rank: 76, program: "MA International Relations", field: "social", link: "https://www.birmingham.ac.uk/postgraduate/courses/taught/govsoc/international-relations-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 76, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
     { country: "uk", university: "University of Glasgow", rank: 79, program: "MSc International Strategic Marketing", field: "business", link: "https://www.gla.ac.uk/postgraduate/taught/internationalstrategicmarketing/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 78, "985": 80, "211": 83, other: 87 } },
     { country: "uk", university: "University of Leeds", rank: 86, program: "MSc Business Analytics and Decision Sciences", field: "data", link: "https://courses.leeds.ac.uk/i676/business-analytics-and-decision-sciences-msc", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 78, "985": 80, "211": 83, other: 88 } },
     { country: "uk", university: "University of Southampton", rank: 87, program: "MSc Business Analytics and Management Sciences", field: "data", link: "https://www.southampton.ac.uk/courses/business-analytics-management-sciences-masters-msc", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 76, "985": 78, "211": 81, other: 86 } },
+    { country: "uk", university: "University of Southampton", rank: 87, program: "MA International Relations", field: "social", link: "https://www.southampton.ac.uk/courses/international-relations-masters-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 74, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
     { country: "uk", university: "The University of Sheffield", rank: 92, program: "MSc Data Analytics", field: "data", link: "https://www.sheffield.ac.uk/postgraduate/taught/courses/2026/data-analytics-msc", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 76, "985": 78, "211": 81, other: 86 } },
     { country: "uk", university: "Durham University", rank: 94, program: "MSc Management", field: "business", link: "https://www.durham.ac.uk/business/courses/management-g5k007/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 80, "985": 82, "211": 85, other: 89 } },
     { country: "uk", university: "University of Nottingham", rank: 97, program: "MSc Business Analytics", field: "data", link: "https://www.nottingham.ac.uk/pgstudy/course/taught/business-analytics-msc", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 76, "985": 78, "211": 81, other: 86 } },
+    { country: "uk", university: "University of Nottingham", rank: 97, program: "Public Policy MA", field: "social", link: "https://www.nottingham.ac.uk/pgstudy/course/taught/public-policy-ma", source: "官网项目页 + 公开版社科宽口径规则", floor: { c9: 74, "985": 80, "211": 80, public_top200: 82, public_non_top200: 82, private: 82, other: 82 } },
     { country: "uk", university: "Queen Mary University of London", rank: 110, program: "MSc Management", field: "business", link: "https://www.qmul.ac.uk/postgraduate/taught/coursefinder/courses/management-msc/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 76, "985": 78, "211": 81, other: 86 } },
     { country: "uk", university: "University of Exeter", rank: 155, program: "MSc International Business", field: "business", link: "https://www.exeter.ac.uk/study/postgraduate/courses/business/internationalbusiness/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 76, "985": 78, "211": 80, other: 84 } },
     { country: "uk", university: "Lancaster University", rank: 157, program: "MSc Management", field: "business", link: "https://www.lancaster.ac.uk/study/postgraduate/postgraduate-courses/management-msc/", source: "官网项目页 + 公开版通用初筛规则", floor: { c9: 75, "985": 77, "211": 80, other: 84 } },

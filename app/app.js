@@ -28,7 +28,9 @@ function showView(name) {
 
 function loadApiSettings() {
   const settings = JSON.parse(localStorage.getItem("studyPlannerApi") || "{}");
-  if (apiUrlInput) apiUrlInput.value = settings.url || "https://study-planner-fiq3.onrender.com";
+  const defaultApiUrl = "https://study-planner-api-l583.onrender.com";
+  const savedUrl = settings.url === "https://study-planner-fiq3.onrender.com" ? defaultApiUrl : settings.url;
+  if (apiUrlInput) apiUrlInput.value = savedUrl || defaultApiUrl;
   if (apiKeyInput) apiKeyInput.value = settings.key || "";
 }
 
@@ -78,26 +80,34 @@ function normalizeSchoolName(name) {
 function detectTier(university) {
   const normalized = normalizeSchoolName(university);
   if (/独立学院|民办/.test(university)) {
-    return { id: "private", label: "三本民办 / 独立学院", inferred: true };
+    return { id: "private", label: "民办三本 / 独立学院", inferred: true };
   }
   for (const tier of APP_DATA.tiers) {
     if (tier.schools.some((school) => normalizeSchoolName(school) === normalized)) {
       return { id: tier.id, label: tier.label };
     }
   }
-  return { id: "public_non211", label: "一本双非 / 公办本科", inferred: true };
+  return { id: "public_top200", label: "双非一本 / 中国前200（需名单复核）", inferred: true };
+}
+
+function normalizeTierId(id) {
+  if (id === "public_non211") return "public_top200";
+  return id || "public_top200";
 }
 
 function resolveTier(university, schoolType) {
   const detected = detectTier(university);
-  if (!schoolType || schoolType === "auto") return detected;
+  const selected = normalizeTierId(schoolType);
+  if (!selected || selected === "auto") return detected;
   const labels = {
+    c9: "C9 / 顶尖985",
     "985": "985高校",
     "211": "211 / 双一流高校",
-    public_non211: "一本双非 / 公办本科",
-    private: "三本民办 / 独立学院"
+    public_top200: "双非一本 / 中国前200",
+    public_non_top200: "公办二本 / 非前200",
+    private: "民办三本 / 独立学院"
   };
-  return { id: schoolType, label: labels[schoolType] || detected.label, manual: true };
+  return { id: selected, label: labels[selected] || detected.label, manual: true };
 }
 
 function detectMajorGroup(major) {
@@ -118,13 +128,29 @@ function detectSpecialNeeds(notes) {
   };
 }
 
+function isHotMajor(majorGroup) {
+  return majorGroup === "business" || majorGroup === "data";
+}
+
+function isBroadSocialMajor(majorGroup) {
+  return majorGroup === "social" || majorGroup === "arts";
+}
+
+function isEliteTier(tierId) {
+  return tierId === "c9" || tierId === "985" || tierId === "211";
+}
+
+function allowsLowerTierTop100(program, majorGroup) {
+  const allowedUniversities = ["University of Southampton", "University of Nottingham", "University of Birmingham"];
+  return program.country === "uk" && program.rank <= 100 && isBroadSocialMajor(majorGroup) && allowedUniversities.includes(program.university);
+}
+
 function fitText(delta, majorMatched, rank) {
   if (rank <= 10 && delta >= 0) return "高排名优选";
-  if (rank <= 10 && delta >= -3) return "高排名冲刺";
+  if (rank <= 100 && delta >= 0) return "前100匹配";
   if (delta >= 5 && majorMatched) return "高匹配";
   if (delta >= 2) return "较稳妥";
-  if (delta >= 0) return "可申请";
-  return "冲刺";
+  return "可申请";
 }
 
 function scoreBand(score) {
@@ -160,23 +186,49 @@ function getCaseSignal(program, tier, majorGroup, score) {
 }
 
 function buildReason(program, student, tier, majorGroup, specialNeeds) {
-  const floor = program.floor;
-  const delta = student.score - floor;
+  const delta = student.score - program.floor;
   const majorMatched = program.field === majorGroup;
   const subjectText = majorMatched ? "专业方向匹配" : "专业方向需补充相关经历";
-  const scoreText = delta >= 0 ? `均分高于当前规则线 ${delta.toFixed(1)} 分` : `均分低于当前规则线 ${Math.abs(delta).toFixed(1)} 分`;
+  const scoreText = `均分达到当前规则线，并高出 ${delta.toFixed(1)} 分`;
   const transferText = specialNeeds.transfer ? "学生有转专业诉求，建议优先补充相关课程、实习、项目经历，并避开明确强限制本科背景的项目。" : "";
-  return `${subjectText}，${scoreText}。按学校排名优先排序后，该项目属于当前背景下更靠前且具备可操作性的选择。${transferText}`;
+  return `${subjectText}，${scoreText}。该项目已通过院校名单/背景规则筛选，并按可申请范围内的学校排名优先推荐。${transferText}`;
 }
 
-function resolveProgramRule(program, tier) {
-  const baseFloor = program.floor[tier.id] ?? program.floor.other + (tier.id === "private" ? 3 : 0);
-  const listBlocked = program.country === "uk" && program.listRestricted === true && tier.id === "private";
+function resolveProgramRule(program, tier, majorGroup, countryId) {
+  const tierId = normalizeTierId(tier.id);
+  const baseThreshold = APP_DATA.thresholds[countryId][tierId] ?? APP_DATA.thresholds[countryId].other;
+  const tierFloor = program.floor[tierId] ?? program.floor.public_non211 ?? program.floor.other ?? baseThreshold;
+  let floor = Math.max(tierFloor, baseThreshold - 3);
+  let accepted = true;
+  let note = "";
+
+  if (program.country === "uk") {
+    if (isEliteTier(tierId)) {
+      if (isHotMajor(majorGroup)) floor = Math.max(floor, 85);
+      if (isBroadSocialMajor(majorGroup)) floor = Math.max(floor, program.rank <= 100 ? 80 : 70);
+    }
+
+    if (tierId === "public_top200" && program.listRestricted) {
+      note = "双非一本按英国院校认可名单复核；公开规则只在达到名单项目分数线时推荐。";
+    }
+
+    if (tierId === "public_non_top200" || tierId === "private") {
+      if (program.rank <= 100 && !allowsLowerTierTop100(program, majorGroup)) {
+        accepted = false;
+        note = "公办二本/民办三本通常不进入该类前100名单项目，系统不强行匹配。";
+      } else if (program.rank <= 100) {
+        floor = Math.max(tierFloor, 82);
+        note = "该前100选项仅限文科社科等相对宽口径方向，并需逐项复核院校名单。";
+      }
+    }
+  }
+
   return {
-    floor: baseFloor,
+    floor,
     source: program.source,
     documentBand: program.listRestricted ? "名单限制项目" : "接受范围较宽",
-    accepted: !listBlocked
+    accepted,
+    note
   };
 }
 
@@ -184,22 +236,20 @@ function recommend(student, countryId) {
   const tier = resolveTier(student.university, student.schoolType);
   const majorGroup = detectMajorGroup(student.major);
   const specialNeeds = detectSpecialNeeds(student.notes);
-  const base = APP_DATA.thresholds[countryId][tier.id] ?? APP_DATA.thresholds[countryId].other;
 
   return APP_DATA.programs
     .filter((program) => program.country === countryId)
     .map((program) => {
-      const rule = resolveProgramRule(program, tier);
-      const floor = Math.max(rule.floor, base - 3);
-      const delta = student.score - floor;
+      const rule = resolveProgramRule(program, tier, majorGroup, countryId);
+      const delta = student.score - rule.floor;
       const majorMatched = program.field === majorGroup;
-      const feasibility = delta * 10 + (majorMatched ? 18 : -8) + (rule.accepted ? 0 : -160);
-      const rankScore = Math.max(0, 1400 - program.rank) / 14;
       const caseSignal = getCaseSignal(program, tier, majorGroup, student.score);
-      const total = feasibility + rankScore + caseSignal.score;
-      return {
+      const rankScore = Math.max(0, 1400 - program.rank) / 14;
+      const matchScore = majorMatched ? 18 : -8;
+      const total = rankScore + matchScore + Math.min(12, Math.max(-8, caseSignal.score));
+      const item = {
         ...program,
-        floor,
+        floor: rule.floor,
         ruleSource: rule.source,
         documentBand: rule.documentBand,
         ruleNote: rule.note,
@@ -209,16 +259,15 @@ function recommend(student, countryId) {
         majorMatched,
         tier,
         total,
-        fit: fitText(delta, majorMatched, program.rank),
-        reason: buildReason(program, student, tier, majorGroup, specialNeeds)
+        fit: fitText(delta, majorMatched, program.rank)
       };
+      item.reason = buildReason(item, student, tier, majorGroup, specialNeeds);
+      return item;
     })
-    .filter((program) => program.delta >= -3 && program.acceptedByDocument !== false)
+    .filter((program) => program.delta >= 0 && program.acceptedByDocument !== false)
     .sort((a, b) => {
-      const aAdmissible = a.delta >= 0 ? 1 : 0;
-      const bAdmissible = b.delta >= 0 ? 1 : 0;
-      if (aAdmissible !== bAdmissible) return bAdmissible - aAdmissible;
       if (a.rank !== b.rank) return a.rank - b.rank;
+      if (a.majorMatched !== b.majorMatched) return a.majorMatched ? -1 : 1;
       return b.total - a.total;
     })
     .slice(0, 6);
@@ -242,7 +291,7 @@ function renderResults(results, student, country) {
   resultCountry.textContent = `${country.name} · 推荐结果`;
   resultTitle.textContent = `${student.nickname} 的 6 所学校专业方案`;
   const notesText = student.notes ? `特殊说明：${student.notes}。` : "";
-  profileSummary.textContent = `${student.university}，${student.major}，均分 ${student.score.toFixed(1)}。${notesText}系统识别为 ${tier.label}，优先展示排名更靠前且规则线匹配度更高的项目。`;
+  profileSummary.textContent = `${student.university}，${student.major}，均分 ${student.score.toFixed(1)}。${notesText}系统识别为 ${tier.label}，优先展示符合院校名单与分数线后排名更靠前的项目。`;
 
   recommendations.innerHTML = results
     .map(
@@ -273,8 +322,8 @@ function renderResults(results, student, country) {
   if (!results.length) {
     recommendations.innerHTML = `
       <article class="recommendation-card">
-        <h3>暂无稳妥匹配</h3>
-        <p>当前分数和地区组合没有达到可推荐阈值。建议提高均分、补充语言成绩和相关经历，或选择竞争略低的地区。</p>
+        <h3>暂无符合规则的匹配</h3>
+        <p>当前背景下没有同时满足名单规则与分数线的项目。建议提高均分、补充相关经历，或选择排名区间更宽的院校。</p>
       </article>
     `;
   }
